@@ -15,19 +15,16 @@ find_package(sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(Boost REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 add_executable(hfr_simulator src/hfr_simulator.cpp)
-add_executable(cpi_simulator src/cpi_simulator.cpp)
+
 
 
 target_include_directories(hfr_simulator PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_include_directories(cpi_simulator PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
 target_compile_features(hfr_simulator PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-target_compile_features(cpi_simulator PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
   hfr_simulator
   "rclcpp"
@@ -35,23 +32,13 @@ ament_target_dependencies(
   "ament_cmake_python"
   "std_msgs"
   "sensor_msgs"
+  
 )
 
-ament_target_dependencies(
-  cpi_simulator
-  "rclcpp"
-  "rclpy"
-  "ament_cmake_python"
-  "std_msgs"
-  "sensor_msgs"
-  "pcl_conversions"
-  "pcl_ros"
-)
+target_link_libraries(hfr_simulator Eigen3::Eigen)
+
 
 install(TARGETS hfr_simulator
-  DESTINATION lib/${PROJECT_NAME})
-
-install(TARGETS cpi_simulator
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
