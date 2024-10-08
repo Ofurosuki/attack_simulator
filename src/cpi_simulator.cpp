@@ -1,4 +1,4 @@
-#include <pcl/io/io.h>
+#include <pcl/common/io.h>
 
 #include "boost/algorithm/string.hpp"
 #include "cpi_simulator/custom_point_types.hpp"
@@ -48,7 +48,7 @@ class PointCloudProcessor : public rclcpp::Node {
     }
   }
 
-  int loadPointCloudFromCSV(pcl::PointCloud<pcl::PointXYZIRADT>& cloud) {
+  int loadPointCloudFromCSV(pcl::PointCloud<PointXYZIRADT>& cloud) {
     std::ifstream ifs(csv_path, std::ios::in);
     if (!ifs) return 1;  // File open failed
 
@@ -61,7 +61,7 @@ class PointCloudProcessor : public rclcpp::Node {
       std::vector<std::string> v;
       boost::algorithm::split(v, buf, boost::is_any_of(","));
       if (v.size() < 4) continue;
-      pcl::PointXYZIRADT p;
+      PointXYZIRADT p;
       p.x = std::atof(v[4].c_str());
       p.y = std::atof(v[3].c_str());
       p.z = std::atof(v[5].c_str());
@@ -84,13 +84,13 @@ class PointCloudProcessor : public rclcpp::Node {
   float offset_yaw = 0;
 
   mutable bool injection_flag = false;
-  pcl::PointCloud<pcl::PointXYZIRADT> object_for_injection;
+  pcl::PointCloud<PointXYZIRADT> object_for_injection;
   void topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     // Convert PointCloud2 to PCL PointCloud
-    pcl::PointCloud<pcl::PointXYZIRADT> target_cloud;
+    pcl::PointCloud<PointXYZIRADT> target_cloud;
     pcl::fromROSMsg(*msg, target_cloud);
 
-    pcl::PointCloud<pcl::PointXYZIRADT> injected_cloud;
+    pcl::PointCloud<PointXYZIRADT> injected_cloud;
     if (!injection_flag) {
       injected_cloud = target_cloud;
     } else {
@@ -101,8 +101,8 @@ class PointCloudProcessor : public rclcpp::Node {
     // Convert back to PointCloud2
     sensor_msgs::msg::PointCloud2 output;
     pcl::toROSMsg(injected_cloud, output);
-    output.header = msg->header;        // Maintain the original header
-    output.header.stamp = this->now();  // Update timestamp
+    output.header = msg->header;  // Maintain the original header
+    // output.header.stamp = this->now();  // Update timestamp
 
     // Publish the modified point cloud
     publisher_->publish(output);
