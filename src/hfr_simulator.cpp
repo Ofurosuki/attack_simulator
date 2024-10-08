@@ -33,8 +33,8 @@ class HFRSimulator : public rclcpp::Node {
  private:
   float elimination_angle = 0;
 
-  float azimuth_range = 40.0;  // range of array corresponding to, degree
-  float alititude_range = 30.0;
+  float azimuth_range = 10.0;  // range of array corresponding to, degree
+  float alititude_range = 20.0;
 
   float csv_row = 0;
   float csv_column = 0;
@@ -75,7 +75,7 @@ class HFRSimulator : public rclcpp::Node {
     // Determine row and column count
     int rows = data.size();
     int cols = data[0].size();
-    RCLCPP_INFO(this->get_logger(), "Rows: %d, Columns: %d", rows, cols);
+    // RCLCPP_INFO(this->get_logger(), "Rows: %d, Columns: %d", rows, cols);
 
     outputMatrix.resize(rows, cols);
     for (int i = 0; i < rows; ++i) {
@@ -91,19 +91,21 @@ class HFRSimulator : public rclcpp::Node {
     return;
   }
 
-  std::pair<int, int> get_index(const float azimuth, const float altitude) {
+  inline std::pair<int, int> get_index(const float azimuth,
+                                       const float altitude) {
     int i = (azimuth + azimuth_range / 2) / azimuth_step;
     int j = (altitude + alititude_range / 2) / alititude_step;
     return std::make_pair(i, j);
   }
-  bool is_attack_successful(const float azimuth, const float altitude,
-                            const Eigen::MatrixXd& matrix) {
+  inline bool is_attack_successful(const float azimuth, const float altitude,
+                                   const Eigen::MatrixXd& matrix) {
     if (azimuth > azimuth_range / 2.0 || azimuth < -azimuth_range / 2.0 ||
         altitude > alititude_range / 2.0 || altitude < -alititude_range / 2.0) {
       return 0;
     }
     std::pair<int, int> index = get_index(azimuth, altitude);
-    RCLCPP_INFO(this->get_logger(), "index: %d, %d", index.first, index.second);
+    // RCLCPP_INFO(this->get_logger(), "index: %d, %d", index.first,
+    // index.second);
     float success_rate = matrix(index.first, index.second);
     // Generate a random number between 0 and 1
     std::random_device rd;
@@ -150,9 +152,12 @@ class HFRSimulator : public rclcpp::Node {
       float x = *reinterpret_cast<float*>(&msg->data[offset + 0]);
       float y = *reinterpret_cast<float*>(&msg->data[offset + 4]);
       float z = *reinterpret_cast<float*>(&msg->data[offset + 8]);
+      // float intensity = *reinterpret_cast<float*>(&msg->data[offset + 16]);
+      // float ring = *reinterpret_cast<float*>(&msg->data[offset + 20]);
+      // float azimuth = *reinterpret_cast<float*>(&msg->data[offset + 24]);
       // phi is the angle between the pointcloud and the projection of the
       // pointcloud on the y plane
-
+      // RCLCPP_INFO(this->get_logger(), "azimuth: %f", azimuth);
       cos_phi = x / sqrt(x * x + y * y);
 
       // if (x >= min_x && x <= max_x && y >= min_y && y <= max_y && z >= min_z
@@ -160,13 +165,21 @@ class HFRSimulator : public rclcpp::Node {
       //     z <= max_z)
       //   if (x <= min_x || x >= max_x)
       //     if (!(y >= min_y && y <= max_y))
-      if (cos_phi <= cos(azimuth_range / 2 * M_PI / 180)) return;
-      if (!is_attack_successful(atan2(y, x) * 180 / M_PI,
-                                atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
-                                success_rate_matrix)) {
+      if (cos_phi <= cos(azimuth_range / 2 * M_PI / 180)) {
+        filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
+                             msg->data.begin() + offset + point_step);
+      } else if (!is_attack_successful(
+                     atan2(y, x) * 180 / M_PI,
+                     atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
+                     success_rate_matrix)) {
         filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
                              msg->data.begin() + offset + point_step);
       }
+      // if (azimuth < M_PI / 2.0) {
+      // if (cos_phi <= cos(elimination_angle / 2 * M_PI / 180)) {
+      //   filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
+      //                        msg->data.begin() + offset + point_step);
+      // }
 
       offset += point_step;
     }
