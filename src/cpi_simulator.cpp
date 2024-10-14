@@ -89,13 +89,22 @@ class PointCloudProcessor : public rclcpp::Node {
     // Convert PointCloud2 to PCL PointCloud
     pcl::PointCloud<PointXYZIRADT> target_cloud;
     pcl::fromROSMsg(*msg, target_cloud);
-
     pcl::PointCloud<PointXYZIRADT> injected_cloud;
     if (!injection_flag) {
       injected_cloud = target_cloud;
     } else {
+      // Synchronize object_for_injection's timestamp to that of target_cloud
+      for (auto& point : object_for_injection.points) {
+        point.time_stamp = target_cloud.points[0].time_stamp;
+      }
       injected_cloud = target_cloud + object_for_injection;
     }
+    // pcl::PointCloud<PointXYZIRADT> injected_cloud;
+    // if (!injection_flag) {
+    //   injected_cloud = target_cloud;
+    // } else {
+    //   injected_cloud = target_cloud + object_for_injection;
+    // }
     // injected_cloud = target_cloud + object_for_injection;
 
     // Convert back to PointCloud2
