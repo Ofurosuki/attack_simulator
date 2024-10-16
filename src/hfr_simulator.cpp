@@ -28,13 +28,23 @@ class HFRSimulator : public rclcpp::Node {
     elimination_angle = this->get_parameter("elimination_angle").as_double();
     readCSVtoEigen("/home/awsim/Downloads/success_rate_matrix.csv",
                    success_rate_matrix);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+    for (int i = 0; i < 100; i++) {
+      random_numbers.push_back(dis(gen));
+    }
+    RCLCPP_INFO(this->get_logger(), "random_numbers: %f, %f, %f",
+                random_numbers[0], random_numbers[1], random_numbers[2]);
   }
 
  private:
+  std::vector<float> random_numbers;
+  int idx = 0;
   float elimination_angle = 0;
 
-  float azimuth_range = 10.0;  // range of array corresponding to, degree
-  float alititude_range = 20.0;
+  float azimuth_range = 20.0;  // range of array corresponding to, degree
+  float alititude_range = 40.0;
 
   float csv_row = 0;
   float csv_column = 0;
@@ -97,8 +107,9 @@ class HFRSimulator : public rclcpp::Node {
     int j = (altitude + alititude_range / 2) / alititude_step;
     return std::make_pair(i, j);
   }
-  inline bool is_attack_successful(const float azimuth, const float altitude,
-                                   const Eigen::MatrixXd& matrix) {
+
+  bool is_attack_successful(const float azimuth, const float altitude,
+                            const Eigen::MatrixXd& matrix) {
     if (azimuth > azimuth_range / 2.0 || azimuth < -azimuth_range / 2.0 ||
         altitude > alititude_range / 2.0 || altitude < -alititude_range / 2.0) {
       return 0;
@@ -108,94 +119,60 @@ class HFRSimulator : public rclcpp::Node {
     // index.second);
     float success_rate = matrix(index.first, index.second);
     // Generate a random number between 0 and 1
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(0.0, 1.0);
-    if (dis(gen) < success_rate) {
-      return 1;
-    } else {
-      return 0;
+
+    bool success = random_numbers[idx] < success_rate;
+    idx++;  // Increment idx
+    if (idx >= random_numbers.size()) {
+      idx = 0;
     }
+    return success;
   }
 
   void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     // // Make a copy of the message
-    // auto updated_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
 
-    // // Update the timestamp
-    // //updated_msg->header.stamp = this->now();
+    // auto output_msg = msg;
+    auto output_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
 
-    // // Publish the updated message
-    // publisher_->publish(*updated_msg);
-    // //publisher_->publish(*msg);
-    sensor_msgs::msg::PointCloud2 output_msg = *msg;
-
-    // Set up iterators for reading the input data
-    sensor_msgs::PointCloud2Iterator<float> iter_x(output_msg, "x");
-    sensor_msgs::PointCloud2Iterator<float> iter_y(output_msg, "y");
-    sensor_msgs::PointCloud2Iterator<float> iter_z(output_msg, "z");
-
-    // Set up iterators for writing the output data
-    std::vector<uint8_t> filtered_data;
     size_t point_step = msg->point_step;
-
-    // Define the cropping bounds
-    // float min_x = -1.0, max_x = 1.0;
-    // float min_y = -1.3, max_y = 1.3;
-    // float min_z = -1.0, max_z = 1.0;
 
     size_t offset = 0;
     float cos_phi = 0;
     // const float attack_angle = 0.0f;
     // RCLCPP_INFO(this->get_logger(), "cos: %f", cos(attack_angle/2*M_PI/180));
-    for (size_t i = 0; i < msg->width * msg->height; ++i) {
-      float x = *reinterpret_cast<float*>(&msg->data[offset + 0]);
-      float y = *reinterpret_cast<float*>(&msg->data[offset + 4]);
-      float z = *reinterpret_cast<float*>(&msg->data[offset + 8]);
-      // float intensity = *reinterpret_cast<float*>(&msg->data[offset + 16]);
-      // float ring = *reinterpret_cast<float*>(&msg->data[offset + 20]);
-      // float azimuth = *reinterpret_cast<float*>(&msg->data[offset + 24]);
-      // phi is the angle between the pointcloud and the projection of the
-      // pointcloud on the y plane
-      // RCLCPP_INFO(this->get_logger(), "azimuth: %f", azimuth);
-      cos_phi = x / sqrt(x * x + y * y);
+    for (size_t i = 0; i < output_msg->width * output_msg->height; ++i) {
+      float x = *reinterpret_cast<float*>(&output_msg->data[offset + 0]);
+      float y = *reinterpret_cast<float*>(&output_msg->data[offset + 4]);
+      float z = *reinterpret_cast<float*>(&output_msg->data[offset + 8]);
+      cos_phi = x / std::sqrt(x * x + y * y);
 
-      // if (x >= min_x && x <= max_x && y >= min_y && y <= max_y && z >= min_z
-      // &&
-      //     z <= max_z)
-      //   if (x <= min_x || x >= max_x)
-      //     if (!(y >= min_y && y <= max_y))
-      if (cos_phi <= cos(azimuth_range / 2 * M_PI / 180)) {
-        filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
-                             msg->data.begin() + offset + point_step);
-      } else if (!is_attack_successful(
-                     atan2(y, x) * 180 / M_PI,
-                     atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
-                     success_rate_matrix)) {
-        filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
-                             msg->data.begin() + offset + point_step);
+      if (cos_phi > cos(azimuth_range / 2 * M_PI / 180)) {
+        if (!is_attack_successful(atan2(y, x) * 180 / M_PI,
+                                  atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
+                                  success_rate_matrix)) {
+          float value = 0.0f;
+          std::memcpy(&output_msg->data[offset + 0], &value, sizeof(value));
+          std::memcpy(&output_msg->data[offset + 4], &value, sizeof(value));
+          std::memcpy(&output_msg->data[offset + 8], &value, sizeof(value));
+
+          // float intensity = 0.0f;
+          // std::memcpy(&output_msg->data[offset + 16], &intensity,
+          //             sizeof(intensity));
+          // u_int16_t ring = 0;
+          // std::memcpy(&output_msg->data[offset + 20], &ring, sizeof(ring));
+          // float azimuth = 0.0f;
+          // std::memcpy(&output_msg->data[offset + 24], &azimuth,
+          //             sizeof(azimuth));
+          // float distance = 0.0f;
+          // std::memcpy(&output_msg->data[offset + 28], &distance,
+          //             sizeof(distance));
+        }
       }
-      // if (azimuth < M_PI / 2.0) {
-      // if (cos_phi <= cos(elimination_angle / 2 * M_PI / 180)) {
-      //   filtered_data.insert(filtered_data.end(), msg->data.begin() + offset,
-      //                        msg->data.begin() + offset + point_step);
-      // }
-
       offset += point_step;
     }
 
-    // Set the filtered data in the output message
-    output_msg.data = filtered_data;
-    output_msg.width =
-        filtered_data.size() /
-        point_step;  // Update width to the number of filtered points
-    output_msg.row_step = output_msg.width * point_step;
-
-    // Update the timestamp
-    // output_msg.header.stamp = this->now();
-
     // Publish the updated message
-    publisher_->publish(output_msg);
+    publisher_->publish(*output_msg);
   }
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
