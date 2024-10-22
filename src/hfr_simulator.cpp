@@ -26,7 +26,7 @@ class HFRSimulator : public rclcpp::Node {
 
     this->declare_parameter("elimination_angle", 20.0);
     elimination_angle = this->get_parameter("elimination_angle").as_double();
-    readCSVtoEigen("/home/awsim/Downloads/success_rate_matrix.csv",
+    readCSVtoEigen("/home/lab_awsim/Downloads/out2.csv",
                    success_rate_matrix);
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -44,7 +44,7 @@ class HFRSimulator : public rclcpp::Node {
   float elimination_angle = 0;
 
   float azimuth_range = 20.0;  // range of array corresponding to, degree
-  float alititude_range = 40.0;
+  float alititude_range = 26.0;
 
   float csv_row = 0;
   float csv_column = 0;
@@ -87,17 +87,33 @@ class HFRSimulator : public rclcpp::Node {
     int cols = data[0].size();
     // RCLCPP_INFO(this->get_logger(), "Rows: %d, Columns: %d", rows, cols);
 
-    outputMatrix.resize(rows, cols);
+    // outputMatrix.resize(rows, cols);
+    // for (int i = 0; i < rows; ++i) {
+    //   for (int j = 0; j < cols; ++j) {
+    //   outputMatrix(i, j) = data[i][j];
+    //   }
+    // }
+   
+
+    // //outputMatrix.transpose();
+
+   
+    // csv_row = rows;
+    // csv_column = cols;
+    // azimuth_step = azimuth_range / rows;
+    // alititude_step = alititude_range / cols;
+    //Return row and column count
+
+    outputMatrix.resize(cols, rows);  // Resize to transposed dimensions
     for (int i = 0; i < rows; ++i) {
-      for (int j = 0; j < cols; ++j) {
-        outputMatrix(i, j) = data[i][j];
-      }
+        for (int j = 0; j < cols; ++j) {
+            outputMatrix(cols-j-1, rows-i-1) = data[i][j];  // Swap i and j for transposition
+        }
     }
-    csv_row = rows;
-    csv_column = cols;
-    azimuth_step = azimuth_range / rows;
-    alititude_step = alititude_range / cols;
-    // Return row and column count
+    csv_row = cols;  // Now this refers to the transposed rows
+    csv_column = rows;  // Now this refers to the transposed columns
+    azimuth_step = azimuth_range / csv_row;
+    alititude_step = alititude_range / csv_column;
     return;
   }
 
@@ -147,7 +163,7 @@ class HFRSimulator : public rclcpp::Node {
       cos_phi = x / std::sqrt(x * x + y * y);
 
       if (cos_phi > cos(azimuth_range / 2 * M_PI / 180)) {
-        if (!is_attack_successful(atan2(y, x) * 180 / M_PI,
+        if (is_attack_successful(atan2(y, x) * 180 / M_PI,
                                   atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
                                   success_rate_matrix)) {
           float value = 0.0f;
