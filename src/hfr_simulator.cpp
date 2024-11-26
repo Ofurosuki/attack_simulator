@@ -26,8 +26,10 @@ class HFRSimulator : public rclcpp::Node {
 
     this->declare_parameter("elimination_angle", 20.0);
     elimination_angle = this->get_parameter("elimination_angle").as_double();
-    readCSVtoEigen("/home/lab_awsim/Downloads/out2.csv",
-                   success_rate_matrix);
+    this->declare_parameter("success_rate_chrono", 0.1);
+    sccess_rate_chrono = this->get_parameter("success_rate_chrono").as_double();
+
+    readCSVtoEigen("/home/lab_awsim/Downloads/out2.csv", success_rate_matrix);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -41,6 +43,8 @@ class HFRSimulator : public rclcpp::Node {
  private:
   std::vector<float> random_numbers;
   int idx = 0;
+  int idx_chrono = 0;
+  float sccess_rate_chrono = 0.0;
   float elimination_angle = 0;
 
   float azimuth_range = 20.0;  // range of array corresponding to, degree
@@ -93,24 +97,23 @@ class HFRSimulator : public rclcpp::Node {
     //   outputMatrix(i, j) = data[i][j];
     //   }
     // }
-   
 
     // //outputMatrix.transpose();
 
-   
     // csv_row = rows;
     // csv_column = cols;
     // azimuth_step = azimuth_range / rows;
     // alititude_step = alititude_range / cols;
-    //Return row and column count
+    // Return row and column count
 
     outputMatrix.resize(cols, rows);  // Resize to transposed dimensions
     for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            outputMatrix(cols-j-1, rows-i-1) = data[i][j];  // Swap i and j for transposition
-        }
+      for (int j = 0; j < cols; ++j) {
+        outputMatrix(cols - j - 1, rows - i - 1) =
+            data[i][j];  // Swap i and j for transposition
+      }
     }
-    csv_row = cols;  // Now this refers to the transposed rows
+    csv_row = cols;     // Now this refers to the transposed rows
     csv_column = rows;  // Now this refers to the transposed columns
     azimuth_step = azimuth_range / csv_row;
     alititude_step = alititude_range / csv_column;
@@ -137,9 +140,18 @@ class HFRSimulator : public rclcpp::Node {
     // Generate a random number between 0 and 1
 
     bool success = random_numbers[idx] < success_rate;
-    idx++;  // Increment idx
+    idx++;
     if (idx >= random_numbers.size()) {
       idx = 0;
+    }
+    return success;
+  }
+
+  bool is_attack_successful_chrono() {
+    bool success = random_numbers[idx_chrono] < sccess_rate_chrono;
+    idx_chrono++;
+    if (idx_chrono >= random_numbers.size()) {
+      idx_chrono = 0;
     }
     return success;
   }
@@ -164,8 +176,9 @@ class HFRSimulator : public rclcpp::Node {
 
       if (cos_phi > cos(azimuth_range / 2 * M_PI / 180)) {
         if (is_attack_successful(atan2(y, x) * 180 / M_PI,
-                                  atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
-                                  success_rate_matrix)) {
+                                 atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
+                                 success_rate_matrix) ||
+            is_attack_successful_chrono()) {
           float value = 0.0f;
           std::memcpy(&output_msg->data[offset + 0], &value, sizeof(value));
           std::memcpy(&output_msg->data[offset + 4], &value, sizeof(value));
