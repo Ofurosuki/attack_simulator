@@ -25,11 +25,14 @@ class HFRSimulator : public rclcpp::Node {
         "/sensing/lidar/top/pointcloud_raw_ex", rclcpp::QoS(10).best_effort());
 
     this->declare_parameter("elimination_angle", 20.0);
-    elimination_angle = this->get_parameter("elimination_angle").as_double();
+    azimuth_range = this->get_parameter("elimination_angle").as_double();
     this->declare_parameter("success_rate_chrono", 0.1);
     sccess_rate_chrono = this->get_parameter("success_rate_chrono").as_double();
+    this->declare_parameter("csv_path","/home/lab_awsim/Downloads/out2.csv");
+    csv_path=this->get_parameter("csv_path").as_string();
 
-    readCSVtoEigen("/home/lab_awsim/Downloads/out2.csv", success_rate_matrix);
+
+    readCSVtoEigen(csv_path, success_rate_matrix);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -41,6 +44,8 @@ class HFRSimulator : public rclcpp::Node {
   }
 
  private:
+  std::string csv_path;
+
   std::vector<float> random_numbers;
   int idx = 0;
   int idx_chrono = 0;
@@ -48,7 +53,7 @@ class HFRSimulator : public rclcpp::Node {
   float elimination_angle = 0;
 
   float azimuth_range = 20.0;  // range of array corresponding to, degree
-  float alititude_range = 26.0;
+  float alititude_range = 32.0;
 
   float csv_row = 0;
   float csv_column = 0;
@@ -124,6 +129,18 @@ class HFRSimulator : public rclcpp::Node {
                                        const float altitude) {
     int i = (azimuth + azimuth_range / 2) / azimuth_step;
     int j = (altitude + alititude_range / 2) / alititude_step;
+    if (i >= csv_row) {
+      i = csv_row - 1;
+    }
+    if (j >= csv_column) {
+      j = csv_column - 1;
+    }
+    if (i < 0) {
+      i = 0;
+    }
+    if (j < 0) {
+      j = 0;
+    }
     return std::make_pair(i, j);
   }
 
@@ -168,18 +185,22 @@ class HFRSimulator : public rclcpp::Node {
     float cos_phi = 0;
     // const float attack_angle = 0.0f;
     // RCLCPP_INFO(this->get_logger(), "cos: %f", cos(attack_angle/2*M_PI/180));
+    if(is_attack_successful_chrono()){
+      
+    
     for (size_t i = 0; i < output_msg->width * output_msg->height; ++i) {
       float x = *reinterpret_cast<float*>(&output_msg->data[offset + 0]);
       float y = *reinterpret_cast<float*>(&output_msg->data[offset + 4]);
       float z = *reinterpret_cast<float*>(&output_msg->data[offset + 8]);
-      cos_phi = x / std::sqrt(x * x + y * y);
+      cos_phi = -y / std::sqrt(x * x + y * y);
 
       if (cos_phi > cos(azimuth_range / 2 * M_PI / 180)) {
-        if (is_attack_successful(atan2(y, x) * 180 / M_PI,
+        if (is_attack_successful(atan2(x, -y) * 180 / M_PI,
                                  atan2(z, sqrt(x * x + y * y)) * 180 / M_PI,
-                                 success_rate_matrix) ||
-            is_attack_successful_chrono()) {
+                                 success_rate_matrix)) {
+          
           float value = 0.0f;
+          //RCLCPP_INFO(this->get_logger(), "attack success");
           std::memcpy(&output_msg->data[offset + 0], &value, sizeof(value));
           std::memcpy(&output_msg->data[offset + 4], &value, sizeof(value));
           std::memcpy(&output_msg->data[offset + 8], &value, sizeof(value));
@@ -199,7 +220,7 @@ class HFRSimulator : public rclcpp::Node {
       }
       offset += point_step;
     }
-
+    }
     // Publish the updated message
     publisher_->publish(*output_msg);
   }

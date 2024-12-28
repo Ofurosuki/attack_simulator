@@ -6,8 +6,8 @@ def generate_launch_description():
         launch_ros.actions.Node(
             package='attack_simulator',
             executable='hfr_simulator',
-            parameters=[{'elimination_angle':20.0}
-                        ,{'success_rate_chrono':0.1}]
-                         # degree 
+            parameters=[{'elimination_angle':0.0}
+                        ,{'success_rate_chrono':1.0}
+                        ,{'csv_path':'/home/awsimlab/Downloads/out.csv'}]
         )
     ])
