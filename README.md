@@ -5,8 +5,8 @@ MSDAP is a platform designed to analyze threats of LiDAR attacks in autonomous d
 
 ## Features
 This extension provides the following features:
-- Simulate HFR attacks (特定の範囲のLiDAR点群を消去する)
-- Simulate CPI attacks (任意形状のLiDAR点群を注入する)
+- Simulate HFR attacks (Remove LiDAR point cloud)
+- Simulate CPI attacks (Inject LiDAR point cloud)
 unattacked point cloud<br>
 ![benign](https://github.com/user-attachments/assets/013ca6bf-cf5a-4cac-950b-368c9e6e9264)
 
