@@ -1,6 +1,5 @@
 ## Welcome to Multi-Sensor Defense Analysis Platform (MSDAP)
-MSDAPとはLiDAR攻撃の脅威について、オープンソースで解析するために作られた自動運転車セキュリティ解析用プラットフォームです。
-Tier4 が開発したAWSIMとAutoware Universeを基盤として動作します。
+MSDAP is a platform designed for analyzing threats of LiDAR attacks in autonomous driving security, developed as an open-source tool. It operates on the foundation of AWSIM and Autoware Universe, developed by Tier4.
 
 ## Features
 This extension provides the following features:
